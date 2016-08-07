@@ -1,0 +1,80 @@
+from yahoo_finance import Share
+import rand as rn
+from datetime import datetime
+import numpy
+
+def single(const_min, const_max, quad_min, quad_max, power_min, power_max, exp_min, exp_max, buy_amount_min, buy_amount_max):
+  coeffs = []
+  for i in range(4):
+    coeffs.append(rn.random()*(const_max - const_min)+ const_min)
+    coeffs.append(rn.random()*(quad_max - quad_min)+ quad_min)
+    coeffs.append(rn.random()*(power_max - power_min)+ power_min)
+    coeffs.append(rn.random()*(exp_max - exp_min)+ exp_min)
+  coeffs.append(rn.random()*(buy_amount_max-buy_amount_min)+buy_amount_min)
+  return coeffs
+
+def populate(numIndividuals, const_min, const_max, quad_min, quad_max, power_min, power_max, exp_min, exp_max, buy_amount_min, buy_amount_max):
+  return [single(const_min, const_max, quad_min, quad_max, power_min, power_max, exp_min, exp_max, buy_amount_min, buy_amount_max) for i in range(numIndividuals)]
+
+#google, tesla, amazon, disney, netflix, twitter
+def get_buy_sell(individual, stocks_to_test, current_date, current_money):
+#current price, difference between SMA(15) and SMA(50) slopes, SMA(15) concavity, OBV(15) - OBV(50)
+  buy_sell_list = []
+  for stock in stocks_to_test:
+    sma15, obv15 = get_sma_obv(stock, 15, current_date)
+    sma50, obv50 = get_sma_obv(stock, 50, current_date)
+    price = stock.get_price()
+    sma15_slope = (sma15[-1] - sma15[0])/len(sma15)
+    sma50_slope = (sma50[-1] - sma50[0])/len(sma50)
+    sma_slope_diff = sma15_slope - sma50_slope
+    obv_diff = obv15 - obv50
+    x_array = [i for i in range(15)]
+    sma_concavity = numpy.polyfit(x_array, sma15, 3)[0]
+    score = get_score(individual, price, sma_slope_diff, obv_diff, sma_concavity)))
+    if score > 100:
+      buy_sell_list.append((stock, individual[-1]*score))
+    if score < -100:
+      buy_sell_list.append((stock, individual[-1]*score))
+  return buy_sell_list
+
+def check_success(population, stocks_to_test, start_date, end_date):
+  current_date = datetime.date(int(start_date[:4]), int(start_date[5:7]), int(start_date[8:]))
+  ending_date = datetime.date(int(end_date[:4]), int(end_date[5:7]), int(end_date[8:]))
+  while current_date != ending_date:
+    for individual in population:
+      
+    current_date += datetime.timedelta(days = 1)
+
+def breed(population, survival_percent, mutation_percent):
+  
+
+
+def get_sma_obv(stockName, size, end_date):
+  d1 = datetime.date(int(end_date[:4]), int(end_date[5:7]), int(end_date[8:]))
+  delta = datetime.timedelta(days = -size)
+  start_date = d1 + delta
+  moving_avg_line = []
+  moving_average = 0
+  on_balance_volume = 0
+  num_days = 0;
+  stock = Share(stockName)
+  history = stock.get_historical(start_date, date)
+  prev_day = None
+  for day in history:
+    num_days += 1
+    moving_average += (day[high] + day[low])/2
+    moving_average /= num_days
+    moving_avg_line.append(moving_average)
+    if day != history[0]:
+      if day[high] > prev_day[high]:
+        on_balance_volume += day[volume]
+      if day[high] < prev_day[high]:
+        on_balance_volume -= day[volume]
+    prev_day = day
+  return (moving_avg_line, on_balance_volume)
+
+def get_score(individual, price, sma_slope_diff, obv_diff, sma_concavity):
+  const_score = individual[0]*price + individual[4]*sma_slope_diff + individual[8]*obv_diff + individual[12]*sma_concavity
+  quad_score = individual[1]*price**individual[2] + individual[5]*sma_slope_diff**individual[6] + individual[9]*obv_diff**individual[10] + individual[13]*sma_concavity**individual[14]
+  exp_score = price**individual[3] + sma_slope_diff**individual[7] + obv_diff**individual[11] + sma_concavity**individual[15]
+  return const_score+quad_score+exp_score
