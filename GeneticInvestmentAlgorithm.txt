@@ -6,7 +6,7 @@ import numpy
 def single(const_min, const_max, quad_min, quad_max, power_min, power_max, exp_min, exp_max, buy_amount_min, buy_amount_max):
   coeffs = []
   #randomly generate coefficients within assigned bounds
-  for i in range(4):
+  for i in range(3):
     coeffs.append(rn.random()*(const_max - const_min)+ const_min)
     coeffs.append(rn.random()*(quad_max - quad_min)+ quad_min)
     coeffs.append(rn.random()*(power_max - power_min)+ power_min)
@@ -38,14 +38,12 @@ def get_buy_sell(individual, stocks_to_test, current_date):
     sma50_slope = (sma50[-1] - sma50[0])/len(sma50)
     sma_slope_diff = sma15_slope - sma50_slope
     obv_diff = obv15 - obv50
-    x_array = [i for i in range(15)]
-    sma_concavity = numpy.polyfit(x_array, sma15, 3)[0]
-    score = get_score(individual, price, sma_slope_diff, obv_diff, sma_concavity)
+    score = get_score(individual, price, sma_slope_diff, obv_diff)
     #buying/selling
     if score > 100:
-      buy_sell_list.append((stock, individual[-1]*score)/price)
+      buy_sell_list.append((stock, int((individual[-1]*score)/price)))
     if score < -100:
-      buy_sell_list.append((stock, int(individual[-1]*score)/price))
+      buy_sell_list.append((stock, int((individual[-1]*score)/price)))
   return buy_sell_list 
 
 def check_success(population, stocks_to_test, start_date, end_date):
@@ -64,6 +62,7 @@ def check_success(population, stocks_to_test, start_date, end_date):
     
   #go through the days and see their behavior
   while current_date != ending_date:
+    print(current_date.day)
     if current_date.month >= 10:
       if current_date.day >= 10:
         yhoo_current_date = str(current_date.year) + '-' + str(current_date.month) + '-' + str(current_date.day)
@@ -93,6 +92,7 @@ def check_success(population, stocks_to_test, start_date, end_date):
 
 def breed(population, population_gains, survival_percent, pool_variation_percent, mutation_percent):
   graded = [(population_gains[population[i]], population[i]) for i in range(len(population))]
+  print("breeding")
   graded = [x[1] for x in sorted(graded)]
   graded.reverse()
   num_surviving = int(survival_percent*len(graded))
@@ -135,39 +135,41 @@ def get_sma_obv(stock, size, end_date):
       yhoo_start_date = str(start_date.year) + '-0' + str(start_date.month) + '-' + str(start_date.day)
     else: 
       yhoo_start_date = str(start_date.year) + '-0' + str(start_date.month) + '-0' + str(start_date.day)
-  moving_avg_line = []
   moving_average = 0
+  moving_avg_line = []
   on_balance_volume = 0
-  num_days = 0;
   history = stock.get_historical(yhoo_start_date, end_date)
   history.reverse()
+  num_days = 0
   prev_day = None
   #calculate obv and sma values
   for day in history:
     num_days += 1
     moving_average += (float(day[u'High']) + float(day[u'Low']))/2
-    moving_average /= num_days
-    moving_avg_line.append(moving_average)
+    current_sma = moving_average/num_days
+    moving_avg_line.append(current_sma)
     if day != history[0]:
       if float(day[u'High']) > float(prev_day[u'High']):
         on_balance_volume += float(day[u'Volume'])
       if float(day[u'High']) < float(prev_day[u'High']):
         on_balance_volume -= float(day[u'Volume'])
     prev_day = day
+  print('finished_sma')
   return (moving_avg_line, on_balance_volume)
 
-def get_score(individual, price, sma_slope_diff, obv_diff, sma_concavity):
+def get_score(individual, price, sma_slope_diff, not_obv_diff):
   #calculate score of individuals constants
-  const_score = individual[0]*price + individual[4]*sma_slope_diff + individual[8]*obv_diff + individual[12]*sma_concavity
-  quad_score = individual[1]*price**individual[2] + individual[5]*sma_slope_diff**individual[6] + individual[9]*obv_diff**individual[10] + individual[13]*sma_concavity**individual[14]
-  exp_score = price**individual[3] + sma_slope_diff**individual[7] + obv_diff**individual[11] + sma_concavity**individual[15]
+  obv_diff = not_obv_diff/1000000000
+  const_score = individual[0]*price + individual[4]*sma_slope_diff + individual[8]*obv_diff
+  quad_score = individual[1]*price**individual[2] + individual[5]*sma_slope_diff**individual[6] + individual[9]*obv_diff**individual[10]
+  exp_score = price**individual[3] + sma_slope_diff**individual[7] + obv_diff**individual[11]
   return const_score+quad_score+exp_score
   
   
-population = populate(20, -100, 100, -100, 100, -20, 20, -20, 20, -100, 100)
+population = populate(1, -10, 10, -10, 10, -10, 10, -2, 2, -10, 10)
 stocklist = [Share('YHOO'), Share('GOOGL'), Share('TWTR'), Share('FB')]
 for generation in range(100):
-  gains = check_success(population, stocklist, "2015-02-15", "2015-04-15")
+  gains = check_success(population, stocklist, "2015-02-15", "2015-03-15")
   population = breed(population, gains, .2, .05, .01)
   print("hi")
 print(population)
