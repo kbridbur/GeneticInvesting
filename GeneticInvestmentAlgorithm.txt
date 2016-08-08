@@ -81,9 +81,34 @@ def check_success(population, stocks_to_test, start_date, end_date):
       gains[individual] += portfolio[stock]*stock.get_historical(current_date, current_date)[0][high]
   return gains
 
-def breed(population_gains, survival_percent, mutation_percent):
+def breed(population, population_gains, survival_percent, pool_variation_percent, mutation_percent):
+  graded = [(population_gains[population[i]], population[i]) for i in range(len(population))]
+  graded = [x[1] for x in sorted(graded)]
+  graded.reverse()
+  num_surviving = int(survival_percent*len(graded))
+  parents = graded[:num_surviving]
+  possible_variation = [graded[num_surviving:]]
   
-
+  for individual in possible_variation:
+    if random.random() <= pool_variation_percent:
+      parents.append(individual)
+  
+  for parent in parents:
+    if random.random() <= mutation_percent:
+      pos_to_mutate = random.randint(0,16)
+      parent[pos_to_mutate] = randint(min(parent), max(parent))
+  
+  children = []
+  wanted_length = len(population) - len(parents)
+  while len(children) < wanted_length:
+    male = random.choice(parents)
+    female = random.choice(parents)
+    if male != female:
+      child = male[:8] + female[9:]
+      children.append(child)
+  parents.extend(children)
+  return parents
+      
 
 def get_sma_obv(stockName, size, end_date):
   #convert date to datetime compatible form
