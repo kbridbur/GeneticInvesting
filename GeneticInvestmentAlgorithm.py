@@ -110,7 +110,7 @@ def check_success(population, stocks_to_test, data, starting_money):
     for stock in portfolio.keys():
       price = (float(data[stock][0][u'High'])+float(data[decision[0]][day][u'Low']))/2
       gains[i] += portfolio[stock]*price
-  print(gains[0])
+  print(gains[0]/starting_money)
   return gains
 
 def breed(population, population_gains, survival_percent, pool_variation_percent, mutation_percent):
@@ -128,8 +128,12 @@ def breed(population, population_gains, survival_percent, pool_variation_percent
   for parent in parents:
     if rn.random() <= mutation_percent:
       pos_to_mutate = rn.randint(0,8)
-      high = max(parent)
-      low = min(parent)
+      if pos_to_mutate <= 6:
+        high = max(parent)
+        low = min(parent)
+      else:
+        high = 20
+        low = 20
       parent[pos_to_mutate] = (rn.random()*(high - low)) + low
   
   children = []
@@ -178,12 +182,12 @@ def get_score(individual, price, sma_slope_diff, not_obv_diff):
   return score
   
 #get a good population on a timepoint  
-population = populate(100, -100, 100, -100, 100, -20, 20, -100, 100)
+population = [[66.37426956823778, 79.68530300431567, -1.2548754688505035, 79.72750065680854, -5.783795807268319, -28.66137511260302, 75.03907145852577, 20.0, -1.4341690847473814, 79.9557635317359],[66.37426956823778, 79.68530300431567, -1.2548754688505035, 79.72750065680854, -5.783795807268319, -28.66137511260302, 75.03907145852577, 20.0, -1.4341690847473814, 79.9557635317359]] + populate(98, -100, 100, -100, 100, -20, 20, -100, 100)
 stocklist = [Share('GOOGL'), Share('TSLA')]
-data = get_data(stocklist, "2016-05-01", "2016-08-01")
+data = get_data(stocklist, "2015-02-01", "2015-08-01")
 for generation in range(100):
-  gains = check_success(population, stocklist, data, 3000)
-  population = breed(population, gains, .2, .05, .3)
+  gains = check_success(population, stocklist, data, 30000)
+  population = breed(population, gains, .2, .2, .3)
 print(population[0])
 
 #check a population in a specific time
