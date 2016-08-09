@@ -6,7 +6,7 @@ import numpy
 def single(const_min, const_max, quad_min, quad_max, power_min, power_max, buy_amount_min, buy_amount_max):
   coeffs = []
   #randomly generate coefficients within assigned bounds
-  for i in range(2):
+  for i in range(3):
     coeffs.append(rn.random()*(const_max - const_min)+ const_min)
     coeffs.append(rn.random()*(quad_max - quad_min)+ quad_min)
     coeffs.append(rn.random()*(power_max - power_min)+ power_min)
@@ -116,7 +116,7 @@ def breed(population, population_gains, survival_percent, pool_variation_percent
   
   for parent in parents:
     if rn.random() <= mutation_percent:
-      pos_to_mutate = rn.randint(0,10)
+      pos_to_mutate = rn.randint(0,8)
       high = max(parent)
       low = min(parent)
       parent[pos_to_mutate] = (rn.random()*(high - low)) + low
@@ -161,7 +161,7 @@ def get_score(individual, price, sma_slope_diff, not_obv_diff):
   obv_diff = not_obv_diff/1000000000
   const_score = individual[0]*price + individual[3]*sma_slope_diff + individual[6]*obv_diff
   quad_score = individual[1]*price**individual[2] + individual[4]*sma_slope_diff**individual[5] + individual[7]*obv_diff**individual[8]
-  score = const_score+quad_score+exp_score
+  score = const_score+quad_score
   if type(score) == complex:
     return score.real
   return score
