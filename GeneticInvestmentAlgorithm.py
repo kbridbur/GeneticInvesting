@@ -3,6 +3,14 @@ import random as rn
 import datetime
 import numpy
 
+'''
+TODO:
+  Add complexity to decision algorithm
+  Add more features
+  Create classes for population and individual
+  Increase efficiency
+'''
+
 def single(const_min, const_max, quad_min, quad_max, power_min, power_max, buy_amount_min, buy_amount_max):
   coeffs = []
   #randomly generate coefficients within assigned bounds
@@ -88,17 +96,20 @@ def check_success(population, stocks_to_test, data, starting_money):
       for decision in buy_sell:
         price = (float(data[stock][0][u'High'])+float(data[decision[0]][day][u'Low']))/2
         if decision[1] > 0:
-          bought = min(gains[i]/price, decision[1])
+          bought = min(int(gains[i]/price), decision[1])
           stock_counts[i][decision[0]] += bought
-          gains[i] -= bought*price
+          if bought > 0:
+              gains[i] -= bought * price         
         if decision[1] < 0:
           sold = min(stock_counts[i][decision[0]], -decision[1])
           stock_counts[i][decision[0]] -= sold
-          gains[i] += sold*price
+          if sold > 0:
+            gains[i] += sold * price
   for i in stock_counts.keys():
     portfolio = stock_counts[i]
     for stock in portfolio.keys():
-      gains[i] += portfolio[stock]*float(data[stock][0][u'High'])
+      price = (float(data[stock][0][u'High'])+float(data[decision[0]][day][u'Low']))/2
+      gains[i] += portfolio[stock]*price
   print(gains[0])
   return gains
 
@@ -167,12 +178,12 @@ def get_score(individual, price, sma_slope_diff, not_obv_diff):
   return score
   
 #get a good population on a timepoint  
-population = populate(200, -100, 100, -100, 100, -30, 30, -100, 100)
-stocklist = [Share('YHOO'), Share('FB')]
-data = get_data(stocklist, "2013-08-01", "2016-08-01")
+population = populate(100, -100, 100, -100, 100, -20, 20, -100, 100)
+stocklist = [Share('GOOGL'), Share('TSLA')]
+data = get_data(stocklist, "2016-05-01", "2016-08-01")
 for generation in range(100):
   gains = check_success(population, stocklist, data, 3000)
-  population = breed(population, gains, .4, .2, .05)
+  population = breed(population, gains, .2, .05, .3)
 print(population[0])
 
 #check a population in a specific time
