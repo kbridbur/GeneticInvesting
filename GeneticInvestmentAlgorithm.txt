@@ -62,7 +62,6 @@ def check_success(population, stocks_to_test, start_date, end_date):
     
   #go through the days and see their behavior
   while current_date != ending_date:
-    print(current_date.day)
     if current_date.month >= 10:
       if current_date.day >= 10:
         yhoo_current_date = str(current_date.year) + '-' + str(current_date.month) + '-' + str(current_date.day)
@@ -87,11 +86,12 @@ def check_success(population, stocks_to_test, start_date, end_date):
   for i in stock_counts.keys():
     portfolio = stock_counts[i]
     for stock in portfolio.keys():
-      gains[i] += portfolio[stock]*float(stock.get_historical(yhoo_current_date, yhoo_current_date)[0][u'High'])
+      if stock.get_historical(yhoo_current_date, yhoo_current_date) != []:
+        gains[i] += portfolio[stock]*float(stock.get_historical(yhoo_current_date, yhoo_current_date)[0][u'High'])
   return gains
 
 def breed(population, population_gains, survival_percent, pool_variation_percent, mutation_percent):
-  graded = [(population_gains[population[i]], population[i]) for i in range(len(population))]
+  graded = [(population_gains[i], population[i]) for i in range(len(population))]
   print("breeding")
   graded = [x[1] for x in sorted(graded)]
   graded.reverse()
@@ -100,21 +100,24 @@ def breed(population, population_gains, survival_percent, pool_variation_percent
   possible_variation = [graded[num_surviving:]]
   
   for individual in possible_variation:
-    if random.random() <= pool_variation_percent:
+    if rn.random() <= pool_variation_percent:
       parents.append(individual)
   
   for parent in parents:
-    if random.random() <= mutation_percent:
-      pos_to_mutate = random.randint(0,16)
+    if rn.random() <= mutation_percent:
+      pos_to_mutate = rn.randint(0,16)
       parent[pos_to_mutate] = randint(min(parent), max(parent))
   
   children = []
   wanted_length = len(population) - len(parents)
   while len(children) < wanted_length:
-    male = random.choice(parents)
-    female = random.choice(parents)
+    male = rn.choice(parents)
+    female = rn.choice(parents)
     if male != female:
+      print(male)
+      print(female)
       child = male[:8] + female[9:]
+      print(child)
       children.append(child)
   parents.extend(children)
   return parents
@@ -154,7 +157,6 @@ def get_sma_obv(stock, size, end_date):
       if float(day[u'High']) < float(prev_day[u'High']):
         on_balance_volume -= float(day[u'Volume'])
     prev_day = day
-  print('finished_sma')
   return (moving_avg_line, on_balance_volume)
 
 def get_score(individual, price, sma_slope_diff, not_obv_diff):
@@ -163,14 +165,17 @@ def get_score(individual, price, sma_slope_diff, not_obv_diff):
   const_score = individual[0]*price + individual[4]*sma_slope_diff + individual[8]*obv_diff
   quad_score = individual[1]*price**individual[2] + individual[5]*sma_slope_diff**individual[6] + individual[9]*obv_diff**individual[10]
   exp_score = price**individual[3] + sma_slope_diff**individual[7] + obv_diff**individual[11]
-  return const_score+quad_score+exp_score
+  score = const_score+quad_score+exp_score
+  if type(score) == complex:
+    return score.real
+  return score
   
   
-population = populate(1, -10, 10, -10, 10, -10, 10, -2, 2, -10, 10)
-stocklist = [Share('YHOO'), Share('GOOGL'), Share('TWTR'), Share('FB')]
+population = populate(4, -10, 10, -10, 10, -10, 10, -2, 2, 0, 10)
+stocklist = [Share('YHOO')]#, Share('GOOGL'), Share('TWTR'), Share('FB')]
 for generation in range(100):
   gains = check_success(population, stocklist, "2015-02-15", "2015-03-15")
-  population = breed(population, gains, .2, .05, .01)
+  population = breed(population, gains, .5, .05, .01)
   print("hi")
 print(population)
 
