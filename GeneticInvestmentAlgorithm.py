@@ -71,13 +71,13 @@ def get_buy_sell(individual, stocks_to_test, data, current_index):
       )
   return buy_sell_list 
 
-def check_success(population, stocks_to_test, data):
+def check_success(population, stocks_to_test, data, starting_money):
   gains = {}
   stock_counts = {}
   num_days = len(data[stocks_to_test[0]])
   #initialize a dictionary of individuals to their stock portfolios
   for i in range(len(population)):
-    gains[i] = 0
+    gains[i] = starting_money
     stock_count = {}
     for stock in stocks_to_test:
       stock_count[stock] = 0
@@ -88,23 +88,23 @@ def check_success(population, stocks_to_test, data):
     for i in range(len(population)):
       buy_sell = get_buy_sell(population[i], stocks_to_test, data, day)
       for decision in buy_sell:
-        stock_counts[i][decision[0]] += decision[1]
+        if decision[1] > 0:
+          bought = min(gains[i]/float(data[decision[0]][day][u'High']), decision[1])
+          stock_counts[i][decision[0]] += bought
+          gains[i] -= bought*float(data[decision[0]][day][u'High'])
         if decision[1] < 0:
-          gains[i] += min(-decision[1], stock_counts[i][decision[0]]) * float(data[decision[0]][day][u'High'])
-        #if they do not own any of the stock they wish to sell, sell as much as possible and set it to 0
-        if stock_counts[i][decision[0]] < 0:
-          stock_counts[i][decision[0]] = 0
+          sold = min(stock_counts[i][decision[0]], -decision[1])
+          stock_counts[i][decision[0]] -= sold
+          gains[i] += sold*float(data[decision[0]][day][u'High'])
   for i in stock_counts.keys():
     portfolio = stock_counts[i]
     for stock in portfolio.keys():
-      print(portfolio[stock])
       gains[i] += portfolio[stock]*float(data[stock][0][u'High'])
-  print(gains)
+  print(gains[0])
   return gains
 
 def breed(population, population_gains, survival_percent, pool_variation_percent, mutation_percent):
   graded = [(population_gains[i], population[i]) for i in range(len(population))]
-  print(graded)
   graded = [x[1] for x in sorted(graded)]
   graded.reverse()
   num_surviving = int(survival_percent*len(graded))
@@ -120,7 +120,6 @@ def breed(population, population_gains, survival_percent, pool_variation_percent
       pos_to_mutate = rn.randint(0,10)
       high = max(parent)
       low = min(parent)
-      print("high: " + str(high))
       parent[pos_to_mutate] = (rn.random()*(high - low)) + low
   
   children = []
@@ -128,10 +127,9 @@ def breed(population, population_gains, survival_percent, pool_variation_percent
   while len(children) < wanted_length:
     male = rn.choice(parents)
     female = rn.choice(parents)
-    if male != female:
-      child = male[:6] + female[6:]
-      children.append(child)
-      children.append(child)
+    child = male[:6] + female[6:]
+    children.append(child)
+    children.append(child)
   parents.extend(children)
   return parents
       
@@ -171,11 +169,11 @@ def get_score(individual, price, sma_slope_diff, not_obv_diff):
   return score
   
   
-population = populate(10, -10, 10, -10, 10, -10, 10, -2, 2, 0, 10)
-stocklist = [Share('YHOO')]#, Share('GOOGL'), Share('TWTR'), Share('FB')]
+population = populate(20, -10, 10, -10, 10, -10, 10, -2, 2, 0, 10)
+stocklist = [Share('YHOO'), Share('GOOGL'), Share('TWTR'), Share('FB')]
 data = get_data(stocklist, "2015-02-15", "2015-03-12")
 for generation in range(50):
-  gains = check_success(population, stocklist, data)
+  gains = check_success(population, stocklist, data, 3000)
   population = breed(population, gains, .4, .1, .01)
 print(population)
 
