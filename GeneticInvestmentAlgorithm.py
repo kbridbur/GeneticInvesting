@@ -3,24 +3,22 @@ import random as rn
 import datetime
 import numpy
 
-def single(const_min, const_max, quad_min, quad_max, power_min, power_max, exp_min, exp_max, buy_amount_min, buy_amount_max):
+def single(const_min, const_max, quad_min, quad_max, power_min, power_max, buy_amount_min, buy_amount_max):
   coeffs = []
   #randomly generate coefficients within assigned bounds
-  for i in range(3):
+  for i in range(2):
     coeffs.append(rn.random()*(const_max - const_min)+ const_min)
     coeffs.append(rn.random()*(quad_max - quad_min)+ quad_min)
     coeffs.append(rn.random()*(power_max - power_min)+ power_min)
-    coeffs.append(rn.random()*(exp_max - exp_min)+ exp_min)
   coeffs.append(rn.random()*(buy_amount_max-buy_amount_min)+buy_amount_min)
   return coeffs
 
-def populate(numIndividuals, const_min, const_max, quad_min, quad_max, power_min, power_max, exp_min, exp_max, buy_amount_min, buy_amount_max):
+def populate(numIndividuals, const_min, const_max, quad_min, quad_max, power_min, power_max, buy_amount_min, buy_amount_max):
   return [
     single(
       const_min, const_max,
       quad_min, quad_max,
       power_min, power_max,
-      exp_min, exp_max,
       buy_amount_min, buy_amount_max
     ) for i in range(numIndividuals)
   ]
@@ -116,7 +114,7 @@ def breed(population, population_gains, survival_percent, pool_variation_percent
     if rn.random() <= pool_variation_percent:
       parents.append(individual)
   
-  for parent in parents[1:]:
+  for parent in parents:
     if rn.random() <= mutation_percent:
       pos_to_mutate = rn.randint(0,10)
       high = max(parent)
@@ -128,7 +126,7 @@ def breed(population, population_gains, survival_percent, pool_variation_percent
   while len(children) < wanted_length:
     male = rn.choice(parents)
     female = rn.choice(parents)
-    child = male[:6] + female[6:]
+    child = male[:4] + female[4:]
     children.append(child)
     children.append(child)
   parents.extend(children)
@@ -161,19 +159,17 @@ def get_sma_obv(data, size, current_index):
 def get_score(individual, price, sma_slope_diff, not_obv_diff):
   #calculate score of individuals constants
   obv_diff = not_obv_diff/1000000000
-  const_score = individual[0]*price + individual[4]*sma_slope_diff + individual[8]*obv_diff
-  quad_score = individual[1]*price**individual[2] + individual[5]*sma_slope_diff**individual[6] + individual[9]*obv_diff**individual[10]
-  exp_score = price**individual[3] + sma_slope_diff**individual[7] + obv_diff**individual[11]
+  const_score = individual[0]*price + individual[3]*sma_slope_diff + individual[6]*obv_diff
+  quad_score = individual[1]*price**individual[2] + individual[4]*sma_slope_diff**individual[5] + individual[7]*obv_diff**individual[8]
   score = const_score+quad_score+exp_score
   if type(score) == complex:
     return score.real
   return score
   
 #get a good population on a timepoint  
-population = populate(200, -100, 100, -100, 100, -100, 100, -100, 100, 0, 400)
+population = populate(200, -100, 100, -100, 100, -30, 30, -100, 100)
 stocklist = [Share('YHOO'), Share('FB')]
 data = get_data(stocklist, "2013-08-01", "2016-08-01")
-print("Data Retrieved")
 for generation in range(100):
   gains = check_success(population, stocklist, data, 3000)
   population = breed(population, gains, .4, .2, .05)
