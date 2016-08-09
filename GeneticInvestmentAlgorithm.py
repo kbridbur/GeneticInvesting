@@ -92,7 +92,8 @@ def check_success(population, stocks_to_test, start_date, end_date):
 
 def breed(population, population_gains, survival_percent, pool_variation_percent, mutation_percent):
   graded = [(population_gains[i], population[i]) for i in range(len(population))]
-  print(sorted(graded)[-1])
+  print(sorted(graded)[-1][0])
+  print(sorted(graded)[0][0])
   graded = [x[1] for x in sorted(graded)]
   graded.reverse()
   num_surviving = int(survival_percent*len(graded))
@@ -106,7 +107,7 @@ def breed(population, population_gains, survival_percent, pool_variation_percent
   for parent in parents:
     if rn.random() <= mutation_percent:
       pos_to_mutate = rn.randint(0,16)
-      parent[pos_to_mutate] = randint(min(parent), max(parent))
+      parent[pos_to_mutate] = (rn.random()*(max(parent) - min(parent)))+min(parent)
   
   children = []
   wanted_length = len(population) - len(parents)
