@@ -11,6 +11,44 @@ TODO:
   Increase efficiency
 '''
 
+class Chromosome():
+  def __init__(self, genes):
+    self.genes = genes
+    
+  def Cross(self, other):
+    #DO NOT RETURN AN INSTANCE OF CHROMOSOME, JUST A LIST
+  
+  
+class Single():
+  def __init__(self, constant_list, id):
+    self.id = id
+    chromosomes = [l[i:i+1] for i in range(0, len(constant_list), 2)]
+    self.chromosomes = [Chromosome(i) for i in chromosomes]
+  
+  def Mate(self, other, id):
+    child_chromosomes = []
+    for chromosome in range(len(self.chromosomes)):
+      child_chromosomes.extend(
+        self.chromosomes[chromosome].Cross(other.chromosomes[chromosome])
+      )
+    return Single(child_chromosomes, id)
+      
+      
+class Population()
+  def __init__(self, num_individuals, constant_list):
+    individuals = []
+    for i in range(num_individuals):
+      individual_genes = []
+      for j in range(3):
+        individual_genes.append(rn.random()*(constant_list[1] - constant_list[0])+ constant_list[0])
+        individual_genes.append(rn.random()*(constant_list[3] - constant_list[2])+ constant_list[2])
+        individual_genes.append(rn.random()*(constant_list[5] - constant_list[4])+ constant_list[4])
+      individual_genes.append(rn.random()*(constant_list[7]-constant_list[6])+constant_list[6])
+    individuals.append(Single(individual_genes, i))
+    self.individuals = individuals
+
+  def Breed(surviving_percent, random_selection_percent, mutation_chance):    
+
 def single(const_min, const_max, quad_min, quad_max, power_min, power_max, buy_amount_min, buy_amount_max):
   coeffs = []
   #randomly generate coefficients within assigned bounds
@@ -64,14 +102,14 @@ def get_buy_sell(individual, stocks_to_test, data, current_index):
     sma15_slope = (sma15[-1] - sma15[0])/len(sma15)
     sma50_slope = (sma50[-1] - sma50[0])/len(sma50)
     sma_slope_diff = sma15_slope - sma50_slope
-    obv_diff = obv15 - obv50
+    obv_diff = obv15*10/3 - obv50
     score = get_score(individual, price, sma_slope_diff, obv_diff)
     #buying/selling
-    if score > 100:
+    if score > 20000:
       buy_sell_list.append(
         (stock, int((individual[-1]*score)/price))
       )
-    if score < -100:
+    if score < 10000:
       buy_sell_list.append(
         (stock, int((individual[-1]*score)/price))
       )
@@ -110,7 +148,6 @@ def check_success(population, stocks_to_test, data, starting_money):
     for stock in portfolio.keys():
       price = (float(data[stock][0][u'High'])+float(data[decision[0]][day][u'Low']))/2
       gains[i] += portfolio[stock]*price
-  print(gains[0]/starting_money)
   return gains
 
 def breed(population, population_gains, survival_percent, pool_variation_percent, mutation_percent):
@@ -171,9 +208,9 @@ def get_sma_obv(data, size, current_index):
     prev_day = day
   return (moving_avg_line, on_balance_volume)
 
-def get_score(individual, price, sma_slope_diff, not_obv_diff):
+def get_score(individual, price, sma_slope_diff, obv_diff):
   #calculate score of individuals constants
-  obv_diff = not_obv_diff/1000000000
+  obv_diff /= 1000000
   const_score = individual[0]*price + individual[3]*sma_slope_diff + individual[6]*obv_diff
   quad_score = individual[1]*price**individual[2] + individual[4]*sma_slope_diff**individual[5] + individual[7]*obv_diff**individual[8]
   score = const_score+quad_score
@@ -181,14 +218,19 @@ def get_score(individual, price, sma_slope_diff, not_obv_diff):
     return score.real
   return score
   
-#get a good population on a timepoint  
-population = [[66.37426956823778, 79.68530300431567, -1.2548754688505035, 79.72750065680854, -5.783795807268319, -28.66137511260302, 75.03907145852577, 20.0, -1.4341690847473814, 79.9557635317359],[66.37426956823778, 79.68530300431567, -1.2548754688505035, 79.72750065680854, -5.783795807268319, -28.66137511260302, 75.03907145852577, 20.0, -1.4341690847473814, 79.9557635317359]] + populate(98, -100, 100, -100, 100, -20, 20, -100, 100)
+#get a good population on a timepoint
+scores = []
 stocklist = [Share('GOOGL'), Share('TSLA')]
-data = get_data(stocklist, "2015-02-01", "2015-08-01")
-for generation in range(100):
-  gains = check_success(population, stocklist, data, 30000)
-  population = breed(population, gains, .2, .2, .3)
-print(population[0])
+data = get_data(stocklist, "2016-02-01", "2016-08-01")
+for trail in range(1):
+  population = populate(100, -20, 20, -20, 20, -5, 5, -100, 100)
+  for generation in range(100):
+    gains = check_success(population, stocklist, data, 30000)
+    population = breed(population, gains, .3, .1, .1)
+    print(gains[0]/30000)
+  print(population[0])
+#[83.06244102844536, 81.85830592205076, 65.79228808068581, 80.01920341325118, 83.12176136420138, 83.03874141727889, 10.074165171302429, 20.0, -7.451109241639138, 83.207618791519]
+#[66.37426956823778, 79.68530300431567, -1.2548754688505035, 79.72750065680854, -5.783795807268319, -28.66137511260302, 75.03907145852577, 20.0, -1.4341690847473814, 79.9557635317359]
 
 #check a population in a specific time
 # population = [ [36.43964415746713, 16.99805550171314, 13.018944963297876, 12.256872408288878, 14.029017840365377, -49.735176925574976, -34.44217469710874, 36.748229452175565, 46.36520887822199, 41.665493443287374, 3.1515366047861164, -12.224114495967168, 6.211164515680534]             ]
