@@ -25,15 +25,36 @@ def populate(numIndividuals, const_min, const_max, quad_min, quad_max, power_min
     ) for i in range(numIndividuals)
   ]
 
+def get_data(stock_list, start_date, end_date):
+  d1 = datetime.date(int(start_date[:4]), int(start_date[5:7]), int(start_date[8:]))
+  delta = datetime.timedelta(days = -50)
+  start_date = d1 + delta
+  if start_date.month >= 10:
+    if start_date.day >= 10:
+      yhoo_start_date = str(start_date.year) + '-' + str(start_date.month) + '-' + str(start_date.day)
+    else: 
+      yhoo_start_date = str(start_date.year) + '-' + str(start_date.month) + '-0' + str(start_date.day)
+  else:
+    if start_date.day >= 10:
+      yhoo_start_date = str(start_date.year) + '-0' + str(start_date.month) + '-' + str(start_date.day)
+    else: 
+      yhoo_start_date = str(start_date.year) + '-0' + str(start_date.month) + '-0' + str(start_date.day)
+  
+  
+  data = {}
+  for stock in stock_list:
+    data[stock] = stock.get_historical(yhoo_start_date, end_date)
+  return data
+  
 #google, tesla, amazon, disney, netflix, twitter
-def get_buy_sell(individual, stocks_to_test, current_date):
+def get_buy_sell(individual, stocks_to_test, data, current_index):
 #current price, difference between SMA(15) and SMA(50) slopes, SMA(15) concavity, OBV(15) - OBV(50)
   buy_sell_list = []
   for stock in stocks_to_test:
     #get feature values and how the individual would buy/sell based on them
-    sma15, obv15 = get_sma_obv(stock, 15, current_date)
-    sma50, obv50 = get_sma_obv(stock, 50, current_date)
-    price = float(stock.get_historical(current_date, current_date)[0][u'High'])
+    sma15, obv15 = get_sma_obv(data[stock], 15, current_index)
+    sma50, obv50 = get_sma_obv(data[stock], 50, current_index)
+    price = float(data[stock][current_index][u'High'])
     sma15_slope = (sma15[-1] - sma15[0])/len(sma15)
     sma50_slope = (sma50[-1] - sma50[0])/len(sma50)
     sma_slope_diff = sma15_slope - sma50_slope
@@ -41,17 +62,19 @@ def get_buy_sell(individual, stocks_to_test, current_date):
     score = get_score(individual, price, sma_slope_diff, obv_diff)
     #buying/selling
     if score > 100:
-      buy_sell_list.append((stock, int((individual[-1]*score)/price)))
+      buy_sell_list.append(
+        (stock, int((individual[-1]*score)/price))
+      )
     if score < -100:
-      buy_sell_list.append((stock, int((individual[-1]*score)/price)))
+      buy_sell_list.append(
+        (stock, int((individual[-1]*score)/price))
+      )
   return buy_sell_list 
 
-def check_success(population, stocks_to_test, start_date, end_date):
-  current_date = datetime.date(int(start_date[:4]), int(start_date[5:7]), int(start_date[8:]))
-  yhoo_current_date = start_date
-  ending_date = datetime.date(int(end_date[:4]), int(end_date[5:7]), int(end_date[8:]))
+def check_success(population, stocks_to_test, data):
   gains = {}
   stock_counts = {}
+  num_days = len(data[stocks_to_test[0]])
   #initialize a dictionary of individuals to their stock portfolios
   for i in range(len(population)):
     gains[i] = 0
@@ -59,36 +82,23 @@ def check_success(population, stocks_to_test, start_date, end_date):
     for stock in stocks_to_test:
       stock_count[stock] = 0
     stock_counts[i] = stock_count
-    
+  
   #go through the days and see their behavior
-  while current_date != ending_date:
-    if current_date.month >= 10:
-      if current_date.day >= 10:
-        yhoo_current_date = str(current_date.year) + '-' + str(current_date.month) + '-' + str(current_date.day)
-      else: 
-        yhoo_current_date = str(current_date.year) + '-' + str(current_date.month) + '-0' + str(current_date.day)
-    else:
-      if current_date.day >= 10:
-        yhoo_current_date = str(current_date.year) + '-0' + str(current_date.month) + '-' + str(current_date.day)
-      else: 
-        yhoo_current_date = str(current_date.year) + '-0' + str(current_date.month) + '-0' + str(current_date.day)
-    if Share('FB').get_historical(yhoo_current_date, yhoo_current_date) != []:
-      for i in range(len(population)):
-        buy_sell = get_buy_sell(population[i], stocks_to_test, yhoo_current_date)
-        for decision in buy_sell:
-          stock_counts[i][decision[0]] += decision[1]
-          if decision[1] < 0:
-            gains[i] += min(-decision[1], stock_counts[i][decision[0]]) * float(decision[0].get_historical(yhoo_current_date, yhoo_current_date)[0][u'High'])
-          #if they do not own any of the stock they wish to sell, sell as much as possible and set it to 0
-          if stock_counts[i][decision[0]] < 0:
-            stock_counts[i][decision[0]] = 0
-    current_date += datetime.timedelta(days = 1)
+  for day in range(50, num_days):
+    for i in range(len(population)):
+      buy_sell = get_buy_sell(population[i], stocks_to_test, data, day)
+      for decision in buy_sell:
+        stock_counts[i][decision[0]] += decision[1]
+        if decision[1] < 0:
+          gains[i] += min(-decision[1], stock_counts[i][decision[0]]) * float(data[decision[0]][day][u'High'])
+        #if they do not own any of the stock they wish to sell, sell as much as possible and set it to 0
+        if stock_counts[i][decision[0]] < 0:
+          stock_counts[i][decision[0]] = 0
   for i in stock_counts.keys():
     portfolio = stock_counts[i]
     for stock in portfolio.keys():
-      if stock.get_historical(yhoo_current_date, yhoo_current_date) != []:
-        print(portfolio[stock])
-        gains[i] += portfolio[stock]*float(stock.get_historical(yhoo_current_date, yhoo_current_date)[0][u'High'])
+      print(portfolio[stock])
+      gains[i] += portfolio[stock]*float(data[stock][0][u'High'])
   print(gains)
   return gains
 
@@ -126,25 +136,12 @@ def breed(population, population_gains, survival_percent, pool_variation_percent
   return parents
       
 
-def get_sma_obv(stock, size, end_date):
+def get_sma_obv(data, size, current_index):
   #convert date to datetime compatible form
-  d1 = datetime.date(int(end_date[:4]), int(end_date[5:7]), int(end_date[8:]))
-  delta = datetime.timedelta(days = -size)
-  start_date = d1 + delta
-  if start_date.month >= 10:
-    if start_date.day >= 10:
-      yhoo_start_date = str(start_date.year) + '-' + str(start_date.month) + '-' + str(start_date.day)
-    else: 
-      yhoo_start_date = str(start_date.year) + '-' + str(start_date.month) + '-0' + str(start_date.day)
-  else:
-    if start_date.day >= 10:
-      yhoo_start_date = str(start_date.year) + '-0' + str(start_date.month) + '-' + str(start_date.day)
-    else: 
-      yhoo_start_date = str(start_date.year) + '-0' + str(start_date.month) + '-0' + str(start_date.day)
   moving_average = 0
   moving_avg_line = []
   on_balance_volume = 0
-  history = stock.get_historical(yhoo_start_date, end_date)
+  history = data[current_index-size:current_index]
   history.reverse()
   num_days = 0
   prev_day = None
@@ -174,10 +171,11 @@ def get_score(individual, price, sma_slope_diff, not_obv_diff):
   return score
   
   
-population = populate(4, -10, 10, -10, 10, -10, 10, -2, 2, 0, 10)
+population = populate(10, -10, 10, -10, 10, -10, 10, -2, 2, 0, 10)
 stocklist = [Share('YHOO')]#, Share('GOOGL'), Share('TWTR'), Share('FB')]
+data = get_data(stocklist, "2015-02-15", "2015-03-12")
 for generation in range(50):
-  gains = check_success(population, stocklist, "2015-02-15", "2015-03-12")
-  population = breed(population, gains, .5, .5, .5)
+  gains = check_success(population, stocklist, data)
+  population = breed(population, gains, .4, .1, .01)
 print(population)
 
