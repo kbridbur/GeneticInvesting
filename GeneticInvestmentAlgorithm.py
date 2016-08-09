@@ -88,14 +88,15 @@ def check_success(population, stocks_to_test, data, starting_money):
     for i in range(len(population)):
       buy_sell = get_buy_sell(population[i], stocks_to_test, data, day)
       for decision in buy_sell:
+        price = (float(data[stock][0][u'High'])+float(data[decision[0]][day][u'Low']))/2
         if decision[1] > 0:
-          bought = min(gains[i]/float(data[decision[0]][day][u'High']), decision[1])
+          bought = min(gains[i]/price, decision[1])
           stock_counts[i][decision[0]] += bought
-          gains[i] -= bought*float(data[decision[0]][day][u'High'])
+          gains[i] -= bought*price
         if decision[1] < 0:
           sold = min(stock_counts[i][decision[0]], -decision[1])
           stock_counts[i][decision[0]] -= sold
-          gains[i] += sold*float(data[decision[0]][day][u'High'])
+          gains[i] += sold*price
   for i in stock_counts.keys():
     portfolio = stock_counts[i]
     for stock in portfolio.keys():
@@ -115,7 +116,7 @@ def breed(population, population_gains, survival_percent, pool_variation_percent
     if rn.random() <= pool_variation_percent:
       parents.append(individual)
   
-  for parent in parents:
+  for parent in parents[1:]:
     if rn.random() <= mutation_percent:
       pos_to_mutate = rn.randint(0,10)
       high = max(parent)
@@ -168,12 +169,18 @@ def get_score(individual, price, sma_slope_diff, not_obv_diff):
     return score.real
   return score
   
-  
-population = populate(20, -10, 10, -10, 10, -10, 10, -2, 2, 0, 10)
-stocklist = [Share('YHOO'), Share('GOOGL'), Share('TWTR'), Share('FB')]
-data = get_data(stocklist, "2015-02-15", "2015-03-12")
-for generation in range(50):
+#get a good population on a timepoint  
+population = populate(200, -100, 100, -100, 100, -100, 100, -100, 100, 0, 400)
+stocklist = [Share('YHOO'), Share('FB')]
+data = get_data(stocklist, "2013-08-01", "2016-08-01")
+print("Data Retrieved")
+for generation in range(100):
   gains = check_success(population, stocklist, data, 3000)
-  population = breed(population, gains, .4, .1, .01)
-print(population)
+  population = breed(population, gains, .4, .2, .05)
+print(population[0])
 
+#check a population in a specific time
+# population = [ [36.43964415746713, 16.99805550171314, 13.018944963297876, 12.256872408288878, 14.029017840365377, -49.735176925574976, -34.44217469710874, 36.748229452175565, 46.36520887822199, 41.665493443287374, 3.1515366047861164, -12.224114495967168, 6.211164515680534]             ]
+# stocklist = [Share('YHOO')]
+# data = get_data(stocklist, "2013-03-01", "2016-03-01")
+# print(check_success(population, stocklist, data, 3000))
