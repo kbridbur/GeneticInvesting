@@ -87,18 +87,19 @@ def check_success(population, stocks_to_test, start_date, end_date):
     portfolio = stock_counts[i]
     for stock in portfolio.keys():
       if stock.get_historical(yhoo_current_date, yhoo_current_date) != []:
+        print(portfolio[stock])
         gains[i] += portfolio[stock]*float(stock.get_historical(yhoo_current_date, yhoo_current_date)[0][u'High'])
+  print(gains)
   return gains
 
 def breed(population, population_gains, survival_percent, pool_variation_percent, mutation_percent):
   graded = [(population_gains[i], population[i]) for i in range(len(population))]
-  print(sorted(graded)[-1][0])
-  print(sorted(graded)[0][0])
+  print(graded)
   graded = [x[1] for x in sorted(graded)]
   graded.reverse()
   num_surviving = int(survival_percent*len(graded))
   parents = graded[:num_surviving]
-  possible_variation = [graded[num_surviving:]]
+  possible_variation = graded[num_surviving:]
   
   for individual in possible_variation:
     if rn.random() <= pool_variation_percent:
@@ -106,8 +107,11 @@ def breed(population, population_gains, survival_percent, pool_variation_percent
   
   for parent in parents:
     if rn.random() <= mutation_percent:
-      pos_to_mutate = rn.randint(0,16)
-      parent[pos_to_mutate] = (rn.random()*(max(parent) - min(parent)))+min(parent)
+      pos_to_mutate = rn.randint(0,10)
+      high = max(parent)
+      low = min(parent)
+      print("high: " + str(high))
+      parent[pos_to_mutate] = (rn.random()*(high - low)) + low
   
   children = []
   wanted_length = len(population) - len(parents)
@@ -116,6 +120,7 @@ def breed(population, population_gains, survival_percent, pool_variation_percent
     female = rn.choice(parents)
     if male != female:
       child = male[:6] + female[6:]
+      children.append(child)
       children.append(child)
   parents.extend(children)
   return parents
@@ -172,7 +177,7 @@ def get_score(individual, price, sma_slope_diff, not_obv_diff):
 population = populate(4, -10, 10, -10, 10, -10, 10, -2, 2, 0, 10)
 stocklist = [Share('YHOO')]#, Share('GOOGL'), Share('TWTR'), Share('FB')]
 for generation in range(50):
-  gains = check_success(population, stocklist, "2015-02-15", "2015-03-15")
+  gains = check_success(population, stocklist, "2015-02-15", "2015-03-12")
   population = breed(population, gains, .5, .5, .5)
 print(population)
 
