@@ -5,9 +5,9 @@ import numpy
 
 '''
 TODO:
-  Add complexity to decision algorithm
+  Implement decision algorithm
+  Implement Cross with some form of phenotype to genotype abstraction
   Add more features
-  Create classes for population and individual
   Increase efficiency
 '''
 
@@ -16,18 +16,18 @@ class Chromosome():
     self.genes = genes
     
   def Cross(self, other):
-    
+    #potentially some matrix vector transformation ([1, 2, 3; 4, 5, 6; x, y, z]), add random chance for crossover (ie[1,2,6;4,5,3;x,y,z]) do something and get new chromosome
   
   
 class Single():
   def __init__(self, constant_list):
-    self.id = id
     chromosomes = [l[i:i+2] for i in range(0, len(constant_list), 3)]
     self.chromosomes = [Chromosome(i) for i in chromosomes]
     self.phenotype = constant_list
   
-  def Mate(self, other, id):
+  def Mate(self, other):
     child_chromosomes = []
+    #cross each set of chromosomes
     for chromosome in range(len(self.chromosomes)):
       child_chromosomes.extend(
         self.chromosomes[chromosome].Cross(other.chromosomes[chromosome])
@@ -39,16 +39,19 @@ class Population()
   def __init__(self, num_individuals, constant_list):
     self.num_individuals = num_individuals
     individuals = []
+    #create a list of Singles with randomly assigned phenotypes
     for i in range(num_individuals):
       individual_genes = []
-      for j in range(3):
-        individual_genes.append(rn.random()*(constant_list[1] - constant_list[0])+ constant_list[0])
-        individual_genes.append(rn.random()*(constant_list[3] - constant_list[2])+ constant_list[2])
-        individual_genes.append(rn.random()*(constant_list[5] - constant_list[4])+ constant_list[4])
+      #creates chromosomes in order: Constant chromosome, quadratic chromosome, quadratic power chromosome
+      for j in range(0, len(constant_list), 2):
+        individual_genes.append(rn.random()*(constant_list[j] - constant_list[j+1])+ constant_list[j+1])
+        individual_genes.append(rn.random()*(constant_list[j] - constant_list[j+1])+ constant_list[j+1])
+        individual_genes.append(rn.random()*(constant_list[j] - constant_list[j+1])+ constant_list[j+1])
     individuals.append(Single(individual_genes, i))
     self.individuals = individuals
 
-  def Rate(stocks_to_test, data, starting_money)    
+  def Rate(stocks_to_test, data, starting_money):
+    #Check the performance of a population over a data set
     gains = {}
     stock_counts = {}
     buy_sell_log = {}
@@ -72,6 +75,7 @@ class Population()
           price = features[decision[0]][0]
           buy_sell_log[i].append(decision)
           gains += decision[1]*price
+    #Liquidate all stock remaining at the end of the check period
     for i in stock_counts.keys():
       portfolio = stock_counts[i]
       for stock in portfolio.keys():
@@ -87,10 +91,12 @@ class Population()
     parents = graded[:num_surviving]
     possible_variation = graded[num_surviving:]
     
+    #take some individuals from the lower performing bunch to increase diversity
     for individual in possible_variation:
       if rn.random() <= random_selection_percent:
         parents.append(individual)
     
+    #random mutations for increased diversity
     for parent in parents:
       if rn.random() <= mutation_chance:
         pos_to_mutate = rn.randint(0,8)
@@ -102,6 +108,7 @@ class Population()
           low = 20
         parent[pos_to_mutate] = (rn.random()*(high - low)) + low
     
+    #fill the remaining slots in the population with "children" of the most fit
     children = []
     wanted_length = self.num_individuals - len(parents)
     while len(children) < wanted_length:
@@ -113,6 +120,7 @@ class Population()
     return parents
   
 def get_data(stock_list, start_date, end_date):
+  #transform date into python form, subtract 50 days, transform back to yahoo_finance form
   d1 = datetime.date(int(start_date[:4]), int(start_date[5:7]), int(start_date[8:]))
   delta = datetime.timedelta(days = -50)
   start_date = d1 + delta
@@ -127,15 +135,14 @@ def get_data(stock_list, start_date, end_date):
     else: 
       yhoo_start_date = str(start_date.year) + '-0' + str(start_date.month) + '-0' + str(start_date.day)
   
-  
+  #get a dictionary of stock -> historical data
   data = {}
   for stock in stock_list:
     data[stock] = stock.get_historical(yhoo_start_date, end_date)
   return data
   
-#google, tesla, amazon, disney, netflix, twitter
 def get_features(stocks_to_test, data, current_index):
-#current price, difference between SMA(15) and SMA(50) slopes, SMA(15) concavity, OBV(15) - OBV(50)
+  #current price, difference between SMA(15) and SMA(50) slopes, SMA(15) concavity, scaled OBV(15) - OBV(50)
   features = {}
   for stock in stocks_to_test:
     #get feature values and how the individual would buy/sell based on them
@@ -176,8 +183,8 @@ def get_scores(individual, features):
   #calculate score of individuals constants
   scores = {}
   for stock in features.keys():
-    const_score = individual.phenotype[0]*features[stock][0] + individual.phenotype[3]*features[stock][1] + individual.phenotype[6]*features[stock][2]
-    quad_score = individual.phenotype[1]*features[stock][0]**individual.phenotype[2] + individual.phenotype[4]*features[stock][1]**individual.phenotype[5] + individual.phenotype[7]*features[stock][2]**individual.phenotype[8]
+    const_score = individual.phenotype[0]*features[stock][0] + individual.phenotype[1]*features[stock][1] + individual.phenotype[2]*features[stock][2]
+    quad_score = individual.phenotype[3]*features[stock][0]**individual.phenotype[6] + individual.phenotype[4]*features[stock][1]**individual.phenotype[7] + individual.phenotype[5]*features[stock][2]**individual.phenotype[8]
     score = const_score+quad_score
     if type(score) == complex:
       scores[stock] = score.real
@@ -189,6 +196,7 @@ def evaluate_scores(scores, current_money, buy_sell_log):
 #buy sell log is a list of tuples in the form (stock, amount bought or sold) in chronological order
   buy_sell_log.reverse()
   
+  #evaluate scores and distribute $$ to each stock niavely. Iter through stocks in reverse order and relalocate left over money proportionally to other stocks
   
   
 #get a good population on a timepoint
