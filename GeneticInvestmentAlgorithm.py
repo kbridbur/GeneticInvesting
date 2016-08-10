@@ -20,10 +20,11 @@ class Chromosome():
   
   
 class Single():
-  def __init__(self, constant_list, id):
+  def __init__(self, constant_list):
     self.id = id
     chromosomes = [l[i:i+2] for i in range(0, len(constant_list), 3)]
     self.chromosomes = [Chromosome(i) for i in chromosomes]
+    self.phenotype = constant_list
   
   def Mate(self, other, id):
     child_chromosomes = []
@@ -31,11 +32,12 @@ class Single():
       child_chromosomes.extend(
         self.chromosomes[chromosome].Cross(other.chromosomes[chromosome])
       )
-    return Single(child_chromosomes, id)
+    return Single(child_chromosomes)
       
       
 class Population()
   def __init__(self, num_individuals, constant_list):
+    self.num_individuals = num_individuals
     individuals = []
     for i in range(num_individuals):
       individual_genes = []
@@ -46,28 +48,70 @@ class Population()
     individuals.append(Single(individual_genes, i))
     self.individuals = individuals
 
-  def Breed(surviving_percent, random_selection_percent, mutation_chance):    
-
-def single(const_min, const_max, quad_min, quad_max, power_min, power_max, buy_amount_min, buy_amount_max):
-  coeffs = []
-  #randomly generate coefficients within assigned bounds
-  for i in range(3):
-    coeffs.append(rn.random()*(const_max - const_min)+ const_min)
-    coeffs.append(rn.random()*(quad_max - quad_min)+ quad_min)
-    coeffs.append(rn.random()*(power_max - power_min)+ power_min)
-  coeffs.append(rn.random()*(buy_amount_max-buy_amount_min)+buy_amount_min)
-  return coeffs
-
-def populate(numIndividuals, const_min, const_max, quad_min, quad_max, power_min, power_max, buy_amount_min, buy_amount_max):
-  return [
-    single(
-      const_min, const_max,
-      quad_min, quad_max,
-      power_min, power_max,
-      buy_amount_min, buy_amount_max
-    ) for i in range(numIndividuals)
-  ]
-
+  def Rate(stocks_to_test, data, starting_money)    
+    gains = {}
+    stock_counts = {}
+    buy_sell_log = {}
+    num_days = len(data[stocks_to_test[0]])
+    #initialize a dictionary of individuals to their stock portfolios
+    for i in range(self.num_individuals):
+      buy_sell_log[i] = []
+      gains[i] = starting_money
+      stock_count = {}
+      for stock in stocks_to_test:
+        stock_count[stock] = 0
+      stock_counts[i] = stock_count
+    
+    #go through the days and see their behavior
+    for day in range(50, num_days):
+      features = get_features(stocks_to_test, data, day)
+      for i in range(len(population)):
+        scores = get_scores(population[i], features)
+        buy_sell = evaluate_scores(scores, gains[i], buy_sell_log[i])
+        for decision in buy_sell:
+          price = features[decision[0]][0]
+          buy_sell_log[i].append(decision)
+          gains += decision[1]*price
+    for i in stock_counts.keys():
+      portfolio = stock_counts[i]
+      for stock in portfolio.keys():
+        price = (float(data[stock][0][u'High'])+float(data[decision[0]][day][u'Low']))/2
+        gains[i] += portfolio[stock]*price
+    return gains
+    
+  def Breed(gains, surviving_percent, random_selection_percent, mutation_chance):  
+    graded = [(gains[i], self.individuals[i]) for i in range(self.num_individuals)]
+    graded = [x[1] for x in sorted(graded)]
+    graded.reverse()
+    num_surviving = int(surviving_percent*len(graded))
+    parents = graded[:num_surviving]
+    possible_variation = graded[num_surviving:]
+    
+    for individual in possible_variation:
+      if rn.random() <= random_selection_percent:
+        parents.append(individual)
+    
+    for parent in parents:
+      if rn.random() <= mutation_chance:
+        pos_to_mutate = rn.randint(0,8)
+        if pos_to_mutate <= 6:
+          high = max(parent)
+          low = min(parent)
+        else:
+          high = 20
+          low = 20
+        parent[pos_to_mutate] = (rn.random()*(high - low)) + low
+    
+    children = []
+    wanted_length = self.num_individuals - len(parents)
+    while len(children) < wanted_length:
+      male = rn.choice(parents)
+      female = rn.choice(parents)
+      child = male.Mate(female)
+      children.append(child)
+    parents.extend(children)
+    return parents
+  
 def get_data(stock_list, start_date, end_date):
   d1 = datetime.date(int(start_date[:4]), int(start_date[5:7]), int(start_date[8:]))
   delta = datetime.timedelta(days = -50)
@@ -105,78 +149,6 @@ def get_features(stocks_to_test, data, current_index):
     features[stock] = [price, sma_slope_diff, obv_diff]
   return features
 
-def check_success(population, stocks_to_test, data, starting_money):
-  gains = {}
-  stock_counts = {}
-  num_days = len(data[stocks_to_test[0]])
-  #initialize a dictionary of individuals to their stock portfolios
-  for i in range(len(population)):
-    gains[i] = starting_money
-    stock_count = {}
-    for stock in stocks_to_test:
-      stock_count[stock] = 0
-    stock_counts[i] = stock_count
-  
-  #go through the days and see their behavior
-  for day in range(50, num_days):
-    features = get_features(stocks_to_test, data, day)
-    for i in range(len(population)):
-      scores = get_scores(population[i], features)
-      buy_sell = evaluate_scores(scores, gains[i])
-      for decision in buy_sell:
-        features[stock][0]
-        if decision[1] > 0:
-          bought = min(int(gains[i]/price), decision[1])
-          stock_counts[i][decision[0]] += bought
-          if bought > 0:
-              gains[i] -= bought * price         
-        if decision[1] < 0:
-          sold = min(stock_counts[i][decision[0]], -decision[1])
-          stock_counts[i][decision[0]] -= sold
-          if sold > 0:
-            gains[i] += sold * price
-  for i in stock_counts.keys():
-    portfolio = stock_counts[i]
-    for stock in portfolio.keys():
-      price = (float(data[stock][0][u'High'])+float(data[decision[0]][day][u'Low']))/2
-      gains[i] += portfolio[stock]*price
-  return gains
-
-def breed(population, population_gains, survival_percent, pool_variation_percent, mutation_percent):
-  graded = [(population_gains[i], population[i]) for i in range(len(population))]
-  graded = [x[1] for x in sorted(graded)]
-  graded.reverse()
-  num_surviving = int(survival_percent*len(graded))
-  parents = graded[:num_surviving]
-  possible_variation = graded[num_surviving:]
-  
-  for individual in possible_variation:
-    if rn.random() <= pool_variation_percent:
-      parents.append(individual)
-  
-  for parent in parents:
-    if rn.random() <= mutation_percent:
-      pos_to_mutate = rn.randint(0,8)
-      if pos_to_mutate <= 6:
-        high = max(parent)
-        low = min(parent)
-      else:
-        high = 20
-        low = 20
-      parent[pos_to_mutate] = (rn.random()*(high - low)) + low
-  
-  children = []
-  wanted_length = len(population) - len(parents)
-  while len(children) < wanted_length:
-    male = rn.choice(parents)
-    female = rn.choice(parents)
-    child = male[:4] + female[4:]
-    children.append(child)
-    children.append(child)
-  parents.extend(children)
-  return parents
-      
-
 def get_sma_obv(data, size, current_index):
   #convert date to datetime compatible form
   moving_average = 0
@@ -200,12 +172,12 @@ def get_sma_obv(data, size, current_index):
     prev_day = day
   return (moving_avg_line, on_balance_volume)
 
-def get_scores(individual, features):
+def get_scores(individual, features): 
   #calculate score of individuals constants
   scores = {}
   for stock in features.keys():
-    const_score = individual[0]*features[stock][0] + individual[3]*features[stock][1] + individual[6]*features[stock][2]
-    quad_score = individual[1]*features[stock][0]**individual[2] + individual[4]*features[stock][1]**individual[5] + individual[7]*features[stock][2]**individual[8]
+    const_score = individual.phenotype[0]*features[stock][0] + individual.phenotype[3]*features[stock][1] + individual.phenotype[6]*features[stock][2]
+    quad_score = individual.phenotype[1]*features[stock][0]**individual.phenotype[2] + individual.phenotype[4]*features[stock][1]**individual.phenotype[5] + individual.phenotype[7]*features[stock][2]**individual.phenotype[8]
     score = const_score+quad_score
     if type(score) == complex:
       scores[stock] = score.real
@@ -213,23 +185,16 @@ def get_scores(individual, features):
       scores[stock] = score
   return scores
 
-def evaluate_scores(scores, current_money):
-  #some stuff
+def evaluate_scores(scores, current_money, buy_sell_log):
+#buy sell log is a list of tuples in the form (stock, amount bought or sold) in chronological order
+  buy_sell_log.reverse()
+  
   
   
 #get a good population on a timepoint
 scores = []
 stocklist = [Share('GOOGL'), Share('TSLA')]
 data = get_data(stocklist, "2016-02-01", "2016-08-01")
-for trail in range(1):
-  population = populate(100, -20, 20, -20, 20, -5, 5, -100, 100)
-  for generation in range(100):
-    gains = check_success(population, stocklist, data, 30000)
-    population = breed(population, gains, .3, .1, .1)
-    print(gains[0]/30000)
-  print(population[0])
-#[83.06244102844536, 81.85830592205076, 65.79228808068581, 80.01920341325118, 83.12176136420138, 83.03874141727889, 10.074165171302429, 20.0, -7.451109241639138, 83.207618791519]
-#[66.37426956823778, 79.68530300431567, -1.2548754688505035, 79.72750065680854, -5.783795807268319, -28.66137511260302, 75.03907145852577, 20.0, -1.4341690847473814, 79.9557635317359]
 
 #check a population in a specific time
 # population = [ [36.43964415746713, 16.99805550171314, 13.018944963297876, 12.256872408288878, 14.029017840365377, -49.735176925574976, -34.44217469710874, 36.748229452175565, 46.36520887822199, 41.665493443287374, 3.1515366047861164, -12.224114495967168, 6.211164515680534]             ]
