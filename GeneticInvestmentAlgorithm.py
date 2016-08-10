@@ -16,13 +16,13 @@ class Chromosome():
     self.genes = genes
     
   def Cross(self, other):
-    #DO NOT RETURN AN INSTANCE OF CHROMOSOME, JUST A LIST
+    
   
   
 class Single():
   def __init__(self, constant_list, id):
     self.id = id
-    chromosomes = [l[i:i+1] for i in range(0, len(constant_list), 2)]
+    chromosomes = [l[i:i+2] for i in range(0, len(constant_list), 3)]
     self.chromosomes = [Chromosome(i) for i in chromosomes]
   
   def Mate(self, other, id):
@@ -43,7 +43,6 @@ class Population()
         individual_genes.append(rn.random()*(constant_list[1] - constant_list[0])+ constant_list[0])
         individual_genes.append(rn.random()*(constant_list[3] - constant_list[2])+ constant_list[2])
         individual_genes.append(rn.random()*(constant_list[5] - constant_list[4])+ constant_list[4])
-      individual_genes.append(rn.random()*(constant_list[7]-constant_list[6])+constant_list[6])
     individuals.append(Single(individual_genes, i))
     self.individuals = individuals
 
@@ -91,29 +90,20 @@ def get_data(stock_list, start_date, end_date):
   return data
   
 #google, tesla, amazon, disney, netflix, twitter
-def get_buy_sell(individual, stocks_to_test, data, current_index):
+def get_features(stocks_to_test, data, current_index):
 #current price, difference between SMA(15) and SMA(50) slopes, SMA(15) concavity, OBV(15) - OBV(50)
-  buy_sell_list = []
+  features = {}
   for stock in stocks_to_test:
     #get feature values and how the individual would buy/sell based on them
     sma15, obv15 = get_sma_obv(data[stock], 15, current_index)
     sma50, obv50 = get_sma_obv(data[stock], 50, current_index)
-    price = float(data[stock][current_index][u'High'])
+    price =(float(data[stock][current_index][u'High'])+float(data[stock][current_index][u'Low']))/2
     sma15_slope = (sma15[-1] - sma15[0])/len(sma15)
     sma50_slope = (sma50[-1] - sma50[0])/len(sma50)
     sma_slope_diff = sma15_slope - sma50_slope
-    obv_diff = obv15*10/3 - obv50
-    score = get_score(individual, price, sma_slope_diff, obv_diff)
-    #buying/selling
-    if score > 20000:
-      buy_sell_list.append(
-        (stock, int((individual[-1]*score)/price))
-      )
-    if score < 10000:
-      buy_sell_list.append(
-        (stock, int((individual[-1]*score)/price))
-      )
-  return buy_sell_list 
+    obv_diff = (obv15*10/3 - obv50)/1000000
+    features[stock] = [price, sma_slope_diff, obv_diff]
+  return features
 
 def check_success(population, stocks_to_test, data, starting_money):
   gains = {}
@@ -129,10 +119,12 @@ def check_success(population, stocks_to_test, data, starting_money):
   
   #go through the days and see their behavior
   for day in range(50, num_days):
+    features = get_features(stocks_to_test, data, day)
     for i in range(len(population)):
-      buy_sell = get_buy_sell(population[i], stocks_to_test, data, day)
+      scores = get_scores(population[i], features)
+      buy_sell = evaluate_scores(scores, gains[i])
       for decision in buy_sell:
-        price = (float(data[stock][0][u'High'])+float(data[decision[0]][day][u'Low']))/2
+        features[stock][0]
         if decision[1] > 0:
           bought = min(int(gains[i]/price), decision[1])
           stock_counts[i][decision[0]] += bought
@@ -208,15 +200,22 @@ def get_sma_obv(data, size, current_index):
     prev_day = day
   return (moving_avg_line, on_balance_volume)
 
-def get_score(individual, price, sma_slope_diff, obv_diff):
+def get_scores(individual, features):
   #calculate score of individuals constants
-  obv_diff /= 1000000
-  const_score = individual[0]*price + individual[3]*sma_slope_diff + individual[6]*obv_diff
-  quad_score = individual[1]*price**individual[2] + individual[4]*sma_slope_diff**individual[5] + individual[7]*obv_diff**individual[8]
-  score = const_score+quad_score
-  if type(score) == complex:
-    return score.real
-  return score
+  scores = {}
+  for stock in features.keys():
+    const_score = individual[0]*features[stock][0] + individual[3]*features[stock][1] + individual[6]*features[stock][2]
+    quad_score = individual[1]*features[stock][0]**individual[2] + individual[4]*features[stock][1]**individual[5] + individual[7]*features[stock][2]**individual[8]
+    score = const_score+quad_score
+    if type(score) == complex:
+      scores[stock] = score.real
+    else:
+      scores[stock] = score
+  return scores
+
+def evaluate_scores(scores, current_money):
+  #some stuff
+  
   
 #get a good population on a timepoint
 scores = []
