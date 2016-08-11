@@ -6,7 +6,6 @@ import numpy
 '''
 TODO:
   Implement decision algorithm
-  Implement Cross with some form of phenotype to genotype abstraction
   Add more features
   Increase efficiency
 '''
@@ -85,7 +84,7 @@ class Population()
         buy_sell = evaluate_scores(scores, gains[i], buy_sell_log[i])
         for decision in buy_sell:
           price = features[decision[0]][0]
-          buy_sell_log[i].append(decision)
+          buy_sell_log[i].append(decision, price, scores[decision[0])
           gains += decision[1]*price
     #Liquidate all stock remaining at the end of the check period
     for i in stock_counts.keys():
@@ -209,7 +208,7 @@ def evaluate_scores(scores, current_money, buy_sell_log):
   buy_sell_log.reverse()
   
   #evaluate scores and distribute $$ to each stock niavely. Iter through stocks in reverse order and relalocate left over money proportionally to other stocks
-  
+  #something along the lines of compare scores to other times the stock has been bought then see what the gains were from those past times
   
 #get a good population on a timepoint
 scores = []
