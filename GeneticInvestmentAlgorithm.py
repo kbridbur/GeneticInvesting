@@ -17,7 +17,19 @@ class Chromosome():
     
   def Cross(self, other):
     #potentially some matrix vector transformation ([1, 2, 3; 4, 5, 6; x, y, z]), add random chance for crossover (ie[1,2,6;4,5,3;x,y,z]) do something and get new chromosome
-  
+    a_genes = self.genes
+    b_genes = other.genes
+    if rn.random() < .3:
+      swapped_index = rn.randint(0,2)
+      temp = a_genes[swapped_index]
+      a_genes[swapped_index] = b_genes[swapped_index]
+      b_genes[swapped_index] = temp
+      
+    a_magnitude = (abs(a_genes[0]**2 + a_genes[1]**2 + a_genes[2]**2))**.5
+    b_magnitude = (abs(b_genes[0]**2 + b_genes[1]**2 + b_genes[2]**2))**.5
+    resulting_genes = numpy.cross(self.genes, other.genes)
+    normalized_genes = [(a_magnitude+b_magnitude)/(2*a_magnitude*b_magnitude)*i for i in resulting_genes]
+    return normalized_genes
   
 class Single():
   def __init__(self, constant_list):
