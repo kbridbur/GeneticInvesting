@@ -81,11 +81,16 @@ class Population()
       features = get_features(stocks_to_test, data, day)
       for i in range(len(population)):
         scores = get_scores(population[i], features)
-        buy_sell = evaluate_scores(scores, gains[i], buy_sell_log[i])
+        buy_sell = evaluate_scores(scores, gains[i], buy_sell_log[i], features)
         for decision in buy_sell:
           price = features[decision[0]][0]
-          buy_sell_log[i].append(decision, price, scores[decision[0])
-          gains += decision[1]*price
+          if decision[1] > 0:
+            buy_sell_log[i].append((decision, price, scores[decision[0]))
+            gains -= decision[1]*price
+          if decision[1] < 0:
+            sold = min(stock_counts[i][stock], -decision[1])
+            buy_sell_log[i].append(((stock, sold[0]), price, scores[decision[0]))
+            gains += sold*price
     #Liquidate all stock remaining at the end of the check period
     for i in stock_counts.keys():
       portfolio = stock_counts[i]
@@ -203,9 +208,32 @@ def get_scores(individual, features):
       scores[stock] = score
   return scores
 
-def evaluate_scores(scores, current_money, buy_sell_log):
+def evaluate_scores(scores, current_money, buy_sell_log, features):
 #buy sell log is a list of tuples in the form (stock, amount bought or sold) in chronological order
+  money = current_money
+  decisions = []
   buy_sell_log.reverse()
+  stocks = features.keys()
+  percent_allocations = []
+  full_score = 0
+  for stock in stocks:
+    if scores[stock] > 0:
+    full_score += scores[stock]
+  #Determine splitting of $$ output list of tuples (% of money allocated, stock) as well as selling (append directly to decisions)
+  og_split = [(scores[i]/full_score, i) for i in stocks]
+#  for stock in stocks:
+#    stock_history = []
+#    last_stock = None
+#    for i in buy_sell_log:
+#      if i[0] == stock: stock_history.append(i)   
+  
+  
+  #buy
+  for stock in sorted(percent_allocations):
+    stock_price = features[stock[0]][0]
+    buyable = int(money*stock[1]/stock_price)
+    decisions.append(stock[0], buyable)
+    money -= stock_price*buyable
   
   #evaluate scores and distribute $$ to each stock niavely. Iter through stocks in reverse order and relalocate left over money proportionally to other stocks
   #something along the lines of compare scores to other times the stock has been bought then see what the gains were from those past times
