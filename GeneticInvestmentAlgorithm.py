@@ -46,7 +46,7 @@ class Single():
     return Single(child_chromosomes)
       
       
-class Population()
+class Population():
   def __init__(self, num_individuals, constant_list):
     self.num_individuals = num_individuals
     individuals = []
@@ -58,10 +58,10 @@ class Population()
         individual_genes.append(rn.random()*(constant_list[j] - constant_list[j+1])+ constant_list[j+1])
         individual_genes.append(rn.random()*(constant_list[j] - constant_list[j+1])+ constant_list[j+1])
         individual_genes.append(rn.random()*(constant_list[j] - constant_list[j+1])+ constant_list[j+1])
-    individuals.append(Single(individual_genes, i))
+    individuals.append(Single(individual_genes))
     self.individuals = individuals
 
-  def Rate(stocks_to_test, data, starting_money):
+  def Rate(self, stocks_to_test, data, starting_money):
     #Check the performance of a population over a data set
     gains = {}
     stock_counts = {}
@@ -85,11 +85,11 @@ class Population()
         for decision in buy_sell:
           price = features[decision[0]][0]
           if decision[1] > 0:
-            buy_sell_log[i].append((decision, price, scores[decision[0]))
+            buy_sell_log[i].append((decision, price, scores[decision[0]]))
             gains -= decision[1]*price
           if decision[1] < 0:
             sold = min(stock_counts[i][stock], -decision[1])
-            buy_sell_log[i].append(((stock, sold[0]), price, scores[decision[0]))
+            buy_sell_log[i].append(((stock, sold[0]), price, scores[decision[0]]))
             gains += sold*price
     #Liquidate all stock remaining at the end of the check period
     for i in stock_counts.keys():
@@ -99,7 +99,7 @@ class Population()
         gains[i] += portfolio[stock]*price
     return gains
     
-  def Breed(gains, surviving_percent, random_selection_percent, mutation_chance):  
+  def Breed(self, gains, surviving_percent, random_selection_percent, mutation_chance):  
     graded = [(gains[i], self.individuals[i]) for i in range(self.num_individuals)]
     graded = [x[1] for x in sorted(graded)]
     graded.reverse()
@@ -133,6 +133,7 @@ class Population()
       child = male.Mate(female)
       children.append(child)
     parents.extend(children)
+    self.individuals = parents
     return parents
   
 def get_data(stock_list, start_date, end_date):
@@ -218,7 +219,7 @@ def evaluate_scores(scores, current_money, buy_sell_log, features):
   full_score = 0
   for stock in stocks:
     if scores[stock] > 0:
-    full_score += scores[stock]
+      full_score += scores[stock]
   #Determine splitting of $$ output list of tuples (% of money allocated, stock) as well as selling (append directly to decisions)
   og_split = [(scores[i]/full_score, i) for i in stocks]
 #  for stock in stocks:
@@ -226,8 +227,7 @@ def evaluate_scores(scores, current_money, buy_sell_log, features):
 #    last_stock = None
 #    for i in buy_sell_log:
 #      if i[0] == stock: stock_history.append(i)   
-  
-  
+
   #buy
   for stock in sorted(percent_allocations):
     stock_price = features[stock[0]][0]
@@ -242,6 +242,12 @@ def evaluate_scores(scores, current_money, buy_sell_log, features):
 scores = []
 stocklist = [Share('GOOGL'), Share('TSLA')]
 data = get_data(stocklist, "2016-02-01", "2016-08-01")
+population = Population(100, [-100, 100, -100, 100, -20, 20, -100, 100])
+for i in range(50):
+  gains = population.Rate(stocklist, data, 30000)
+  print(gains[0])
+  population.Breed(gains, .2, .2, .05)
+print(population.individuals[0])
 
 #check a population in a specific time
 # population = [ [36.43964415746713, 16.99805550171314, 13.018944963297876, 12.256872408288878, 14.029017840365377, -49.735176925574976, -34.44217469710874, 36.748229452175565, 46.36520887822199, 41.665493443287374, 3.1515366047861164, -12.224114495967168, 6.211164515680534]             ]
