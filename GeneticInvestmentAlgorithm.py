@@ -32,7 +32,7 @@ class Chromosome():
   
 class Single():
   def __init__(self, constant_list):
-    chromosomes = [l[i:i+2] for i in range(0, len(constant_list), 3)]
+    chromosomes = [constant_list[i:i+3] for i in range(0, len(constant_list), 3)]
     self.chromosomes = [Chromosome(i) for i in chromosomes]
     self.phenotype = constant_list
   
@@ -44,6 +44,11 @@ class Single():
         self.chromosomes[chromosome].Cross(other.chromosomes[chromosome])
       )
     return Single(child_chromosomes)
+
+  def Mutate(self, index, value):
+    self.phenotype[index] = value
+    chromosome = int(index/3)
+    self.chromosomes[chromosome-1].genes[index%3] = value
       
       
 class Population():
@@ -58,8 +63,12 @@ class Population():
         individual_genes.append(rn.random()*(constant_list[j] - constant_list[j+1])+ constant_list[j+1])
         individual_genes.append(rn.random()*(constant_list[j] - constant_list[j+1])+ constant_list[j+1])
         individual_genes.append(rn.random()*(constant_list[j] - constant_list[j+1])+ constant_list[j+1])
-    individuals.append(Single(individual_genes))
+      individuals.append(Single(individual_genes))
     self.individuals = individuals
+
+  def SetIndividuals(self, individuals):
+    self.num_individuals = len(individuals)
+    self.individuals = individuals  
 
   def Rate(self, stocks_to_test, data, starting_money):
     #Check the performance of a population over a data set
@@ -79,29 +88,52 @@ class Population():
     #go through the days and see their behavior
     for day in range(50, num_days):
       features = get_features(stocks_to_test, data, day)
-      for i in range(len(population)):
-        scores = get_scores(population[i], features)
+      for i in range(self.num_individuals):
+        scores = get_scores(self.individuals[i], features)
         buy_sell = evaluate_scores(scores, gains[i], buy_sell_log[i], features)
         for decision in buy_sell:
           price = features[decision[0]][0]
           if decision[1] > 0:
             buy_sell_log[i].append((decision, price, scores[decision[0]]))
-            gains -= decision[1]*price
+            gains[i] -= decision[1]*price
+            stock_counts[i][stock] += decision[1]
+            print(
+              'individual ' +
+              str(i) +
+              ' ' +
+              str(decision[1]) +
+              " " +
+              str(stock.get_info()) +               
+              " bought for " + 
+              str(decision[1]*price)
+            )
           if decision[1] < 0:
             sold = min(stock_counts[i][stock], -decision[1])
-            buy_sell_log[i].append(((stock, sold[0]), price, scores[decision[0]]))
-            gains += sold*price
+            buy_sell_log[i].append(((stock, sold), price, scores[decision[0]]))
+            stock_counts[i][stock] -= sold
+            if sold > 0:
+              print(
+                'individual ' +
+                str(i) +
+                ' ' +
+                str(sold) +
+                str(stock.get_info()) +               
+                " sold for " + 
+                str(sold*price)
+              )
+            gains[i] += sold*price
+      print('day ' + str(day) + ' done')
     #Liquidate all stock remaining at the end of the check period
     for i in stock_counts.keys():
       portfolio = stock_counts[i]
       for stock in portfolio.keys():
-        price = (float(data[stock][0][u'High'])+float(data[decision[0]][day][u'Low']))/2
+        price = (float(data[stock][0][u'High'])+float(data[stock][0][u'Low']))/2
         gains[i] += portfolio[stock]*price
     return gains
     
-  def Breed(self, gains, surviving_percent, random_selection_percent, mutation_chance):  
-    graded = [(gains[i], self.individuals[i]) for i in range(self.num_individuals)]
-    graded = [x[1] for x in sorted(graded)]
+  def Breed(self, gains, surviving_percent, random_selection_percent, mutation_chance):
+    graded = [(gains[i], i) for i in range(self.num_individuals)]
+    graded = [self.individuals[x[1]] for x in sorted(graded)]
     graded.reverse()
     num_surviving = int(surviving_percent*len(graded))
     parents = graded[:num_surviving]
@@ -117,12 +149,12 @@ class Population():
       if rn.random() <= mutation_chance:
         pos_to_mutate = rn.randint(0,8)
         if pos_to_mutate <= 6:
-          high = max(parent)
-          low = min(parent)
+          high = max(parent.phenotype)
+          low = min(parent.phenotype)
         else:
           high = 20
           low = 20
-        parent[pos_to_mutate] = (rn.random()*(high - low)) + low
+        parent.Mutate(pos_to_mutate,(rn.random()*(high - low)) + low)
     
     #fill the remaining slots in the population with "children" of the most fit
     children = []
@@ -211,17 +243,18 @@ def get_scores(individual, features):
 
 def evaluate_scores(scores, current_money, buy_sell_log, features):
 #buy sell log is a list of tuples in the form (stock, amount bought or sold) in chronological order
+  current_shares = get_current_shares(buy_sell_log)
   money = current_money
   decisions = []
   buy_sell_log.reverse()
-  stocks = features.keys()
+  stocks = list(features.keys())
   percent_allocations = []
-  full_score = 0
+  full_score = 1
   for stock in stocks:
     if scores[stock] > 0:
       full_score += scores[stock]
   #Determine splitting of $$ output list of tuples (% of money allocated, stock) as well as selling (append directly to decisions)
-  og_split = [(scores[i]/full_score, i) for i in stocks]
+  percent_allocations = [(scores[i]/full_score, stock) for i in stocks]
 #  for stock in stocks:
 #    stock_history = []
 #    last_stock = None
@@ -229,26 +262,47 @@ def evaluate_scores(scores, current_money, buy_sell_log, features):
 #      if i[0] == stock: stock_history.append(i)   
 
   #buy
-  for stock in sorted(percent_allocations):
-    stock_price = features[stock[0]][0]
-    buyable = int(money*stock[1]/stock_price)
-    decisions.append(stock[0], buyable)
-    money -= stock_price*buyable
-  
-  #evaluate scores and distribute $$ to each stock niavely. Iter through stocks in reverse order and relalocate left over money proportionally to other stocks
-  #something along the lines of compare scores to other times the stock has been bought then see what the gains were from those past times
-  
+  sorted_allocations = sorted(percent_allocations)
+  for i in range(len(percent_allocations)):
+    allocation_tuple = sorted_allocations[i]
+    allocation = allocation_tuple[0]
+    stock = allocation_tuple[1]
+    if allocation > 0:
+      stock_price = features[stock][0]
+      buyable = int(money*allocation/stock_price)
+      decisions.append((stock, buyable))
+      money -= stock_price*buyable
+    if allocation < 0:
+      try:
+        to_sell = int(allocation*current_shares[stock]*3)
+      except: to_sell = 0
+      decisions.append((stock, to_sell))
+  return decisions
+
+def get_current_shares(buy_sell_log):
+  share_amounts = {}
+  for past_transaction in buy_sell_log:
+    in_list = list(share_amounts.keys())
+    if past_transaction[0][0] in in_list:
+      share_amounts[past_transaction[0][0]] += past_transaction[0][1]
+    else:
+      share_amounts[past_transaction[0][0]] = past_transaction[0][1]
+  return share_amounts
+
+
+
 #get a good population on a timepoint
 scores = []
 stocklist = [Share('GOOGL'), Share('TSLA')]
-data = get_data(stocklist, "2016-02-01", "2016-08-01")
-population = Population(100, [-100, 100, -100, 100, -20, 20, -100, 100])
-for i in range(50):
+data = get_data(stocklist, "2016-03-01", "2016-03-21")
+population = Population(20, [-100, 100, -100, 100, -20, 20, -100, 100])
+#population.SetIndividuals([Single([-30.646573797938856, 80.25838357570534, 82.5088013288491, 98.03374650924297, -50.157583221357356, 97.41457929984078, -5.032762642612305, -15.902028572262473, 0.4653540116107955, 90.83984050213405, 15.08262977640706, 46.894830284948405])])
+for i in range(5):
   gains = population.Rate(stocklist, data, 30000)
-  print(gains[0])
+  print(gains)
   population.Breed(gains, .2, .2, .05)
-print(population.individuals[0])
-
+##for i in population.individuals:
+##  print(i.phenotype)
 #check a population in a specific time
 # population = [ [36.43964415746713, 16.99805550171314, 13.018944963297876, 12.256872408288878, 14.029017840365377, -49.735176925574976, -34.44217469710874, 36.748229452175565, 46.36520887822199, 41.665493443287374, 3.1515366047861164, -12.224114495967168, 6.211164515680534]             ]
 # stocklist = [Share('YHOO')]
